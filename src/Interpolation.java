@@ -105,8 +105,8 @@ public class Interpolation {
     /**
      * Linear interpolation at some point from domain.
      * @param c neighbouring values of x. The length of this array must be exactly 2.
-     * @param p ratio of domain point x, p = x - floor(x/gridSpacing)
-     * @return value of linear B-spline at x
+     * @param p ratio of domain point x, p = x - floor(x/gridSpacing).
+     * @return value of linear B-spline at x.
      */
     @Contract(pure = true)
     static double deBoor1(double[] c, double p) {
@@ -114,5 +114,27 @@ public class Interpolation {
         return c[0] + p*(c[1] - c[0]);
     }
 
-    //private double cubicInterpolate(double x, coefficients)
+    /**
+     * Calculates values of all basis cubic spline functions at given p.
+     * @param p number from interval [0, 1].
+     * @return values of all four basis cubic spline functions at p (length is 4).
+     */
+    @Contract(pure = true)
+    static double[] coxDeBoor3(double p) {
+        double emp = 1 - p;
+        double[] b = new double[4];
+        // first column
+        b[2] = emp;
+        b[3] = p;
+        // second column
+        b[1] = emp*b[2]/2;
+        b[2] = b[3] + (b[2] + p*(b[2] - b[3]))/2;
+        b[3] = p*b[3]/2;
+        // third column
+        b[0] = emp*b[1]/3;
+        b[1] = (2*(b[1] + b[2]) + p*(b[1] - b[2]))/3;
+        b[2] = b[3] + (b[2] + p*(b[2] - b[3]))/3;
+        b[3] = p*b[3]/3;
+        return b;
+    }
 }

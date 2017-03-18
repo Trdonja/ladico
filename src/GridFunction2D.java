@@ -1,15 +1,13 @@
-import java.util.stream.DoubleStream;
-
 /**
  * Real valued function on two-dimensional grid.
  */
 public class GridFunction2D {
 
-    public final int sizeX;
-    public final int sizeY;
-    public final double spacingX;
-    public final double spacingY;
-    public final double[][] values;
+    final int sizeX;
+    final int sizeY;
+    final double spacingX;
+    final double spacingY;
+    final double[][] values;
 
     /**
      * Constructs grid function from given data.
