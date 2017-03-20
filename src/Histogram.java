@@ -39,7 +39,7 @@ public class Histogram {
             double x = values.nextDouble();
             double r = (x - lowerBound)/binWidth;
             int iFrom = (int) r; // bins to be updated are iFrom .. iFrom + 3 (except for iFrom = 0 or last - 1)
-            double p = r  - Math.floor(r);
+            double p = r - Math.floor(r);
             double[] v = Interpolation.coxDeBoor3(p); // calculate incremental values for relavant bins
             if (iFrom == 0) { // shouldn't be less than 0, because values[:] >= lowerBound
                 // skip v[0]

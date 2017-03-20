@@ -38,6 +38,7 @@ public class BicubicInterpolator {
         double[] dY = new double[4]; // here will be derivatives of interpolations along second dimension
         for (int i = 0; i < 4; i++) {
             double[] cInter = Arrays.copyOfRange(coefficients[loc.iFrom + i], loc.jFrom, loc.jTo);
+            // TODO: Possible optimization: value and derivative in single deBoor algorithm
             c[i] = Interpolation.deBoor3(cInter, loc.py);
             double[] dInter = {(cInter[1] - cInter[0])/gridFunction.spacingY,
                                (cInter[2] - cInter[1])/gridFunction.spacingY,

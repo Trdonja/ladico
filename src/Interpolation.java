@@ -137,4 +137,28 @@ public class Interpolation {
         b[3] = p*b[3]/3;
         return b;
     }
+
+    @Contract(pure = true)
+    static double[] coxDeBoor3WithDerivatives(double p) {
+        double emp = 1 - p;
+        double[] b = new double[8]; // first 4 elements are values, last 4 elements are derivatives
+        // first column
+        b[2] = emp;
+        b[3] = p;
+        // second column
+        b[1] = emp*b[2]/2;
+        b[2] = b[3] + (b[2] + p*(b[2] - b[3]))/2;
+        b[3] = p*b[3]/2;
+        // derivatives (need to be scaled after this function ends, if interval width is not 1)
+        b[4] = b[0] - b[1];
+        b[5] = b[1] - b[2];
+        b[6] = b[2] - b[3];
+        b[7] = b[3];
+        // third column
+        b[0] = emp*b[1]/3;
+        b[1] = (2*(b[1] + b[2]) + p*(b[1] - b[2]))/3;
+        b[2] = b[3] + (b[2] + p*(b[2] - b[3]))/3;
+        b[3] = p*b[3]/3;
+        return b;
+    }
 }
