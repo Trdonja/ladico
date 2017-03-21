@@ -48,6 +48,7 @@ public class Histogram {
                 }
             } else if (iFrom >= last - 1) { // should be ==last-1 or (==last and r==0), because values[:] <= upperBound
                 // skip v[end]
+                // FIXME if iFrom == last, then in foor loop its frequency[iFrom - 2 + i]
                 for (int i = 0; i < 3; i++) {
                     frequency[iFrom - 1 + i] += v[i];
                 }
