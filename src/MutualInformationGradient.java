@@ -6,7 +6,12 @@ import java.util.Optional;
  */
 public class MutualInformationGradient {
 
-    // probability arrays
+    /* TODO:
+    * include histogram hR
+    * rename class to MutualInformation
+    * create methods value() and gradient() instead of get()
+    * */
+    // histogram arrays
     private final double[] hT; // histogram for target image, smoothed with cubic Parzen window
     private final double[][] h; // joint histogram for reference and target image
     /* Quasi gradient of joint probability with respect to transformation parameter vector,
@@ -18,7 +23,7 @@ public class MutualInformationGradient {
     private final double epsR; // bin interval length in histogram for reference image
     private final double epsT; // bin interval length in histogram for target image
     // indicates which Parezn window is used for reference image intensities histogram
-    private final int parzenWindow; // it must be one of the static constants, defined below
+    private final ParzenWindow parzenWindow;
     // number of parameters of geometric transformation (dimension of transformation model)
     private final int parameters;
     // number of sample points used for evaluation of MI gradient
@@ -27,11 +32,15 @@ public class MutualInformationGradient {
     private boolean evaluated; // indicator, if MI gradient is evaluated or not
     private final double[] gradient; // gradient of MI gradient, if it is evaluated
 
-    // Constants for discrimination of different Parzen windows used for reference image
-    public static final int CUBIC_BSPLINE_WINDOW = 3; // Identifies cubic B-spline as Parzen window for ref. image
-    public static final int LINEAR_BSPLINE_WINDOW = 1; // Identifies linear B-spline as Parzen window for ref. image
-    public static final int NO_WINDOW = 0; // Identifies absence of Parzen window for ref. image
-    // For target image, cubic B-spline Parzen window is always used, because it has continuous derivative
+    /**
+     * Enumeration for discrimination of different Parzen windows used for reference image histogram.
+     */
+    public enum ParzenWindow {
+        CUBIC_BSPLINE_WINDOW, // identifies cubic B-spline as Parzen window for ref. image
+        LINEAR_BSPLINE_WINDOW, // identifies linear B-spline as Parzen window for ref. image
+        NO_WINDOW // identifies absence of Parzen window for ref. image
+        // For target image, cubic B-spline Parzen window is always used, because it has continuous derivative
+    }
 
     /**
      * Initializes object for mutual information gradient calculation.
@@ -43,13 +52,11 @@ public class MutualInformationGradient {
      * @param parzenWindow Parzen window used for reference image histogram
      */
     public MutualInformationGradient(int binsR, int binsT, double maxfR, double maxfT, int parameters,
-                                     int parzenWindow) {
-        if (parzenWindow == CUBIC_BSPLINE_WINDOW) {
+                                     ParzenWindow parzenWindow) {
+        if (parzenWindow == ParzenWindow.CUBIC_BSPLINE_WINDOW) {
             nKappa = binsR + 2; // we add two more bins, one at the beginning and one at the end
-        } else if (parzenWindow == LINEAR_BSPLINE_WINDOW || parzenWindow == NO_WINDOW) {
+        } else { // parzenWindow is LINEAR_BSPLINE_WINDOW or NO_WINDOW
             nKappa = binsR;
-        } else {
-            throw new IllegalArgumentException("Invalid constant used to indicate Parzen window.");
         }
         this.parzenWindow = parzenWindow;
         nIota = binsT + 2; // we add two more bins because of use of cubic Parzen window for target image histogram
@@ -92,18 +99,18 @@ public class MutualInformationGradient {
         r = fR/epsR;
         int kFrom = (int) r; // to know which bins should be updated
         x = r - Math.floor(r);
-        if (parzenWindow == CUBIC_BSPLINE_WINDOW) {
+        if (parzenWindow == ParzenWindow.CUBIC_BSPLINE_WINDOW) {
             if (kFrom == nKappa - 3) { // if functional value equals to maximum, fix starting index:
                 kFrom--;
             }
             double[] contributionsFromR = Interpolation.coxDeBoor3(x);
-            // updating histogram of h and histogram of of ∂h/∂μ
+            // updating histogram h and ∂h/∂μ
             for (int k = 0; k < 4; k++) {
                 int kNow = kFrom + k;
+                // TODO: hR[kNow] += contributionsFromR[k];
                 for (int j = 0; j < 4; j++) {
                     int jNow = jFrom + j;
-                    // update h
-                    h[kNow][jNow] += contributionsFromR[k] * contributionsFromT[j];
+                    h[kNow][jNow] += contributionsFromR[k] * contributionsFromT[j]; // update h
                     // update gradient of h
                     double prod = contributionsFromR[k] * contributionsFromT[4 + j];
                     for (int i = 0; i < parameters; i++) {
@@ -111,11 +118,12 @@ public class MutualInformationGradient {
                     }
                 }
             }
-        } else if (parzenWindow == LINEAR_BSPLINE_WINDOW) {
+        } else if (parzenWindow == ParzenWindow.LINEAR_BSPLINE_WINDOW) {
             if (kFrom == nKappa - 1) { // if functional value equals to maximum, fix starting index:
                 kFrom --;
             }
             double emx = 1 - x; // contributions from R are now {1-x, x}
+            // TODO: hR[kNow] += emx; hR[kNow + 1] += x;
             for (int j = 0; j < 4; j++) {
                 int jNow = jFrom + j;
                 h[kFrom][jNow] += emx * contributionsFromT[j];
@@ -127,13 +135,14 @@ public class MutualInformationGradient {
                     dp[i][kFrom + 1][jNow] += prod1 * gradfT[i];
                 }
             }
-        } else {// parzenWindow == NO_WINDOW, the only remaining option
+        } else if (parzenWindow == ParzenWindow.NO_WINDOW) { // the only remaining option
             if (kFrom == nKappa - 1) { // if functional value equals to maximum, fix starting index:
                 kFrom --;
             }
             if (x >= 0.5) { // decides which bin to increment by 1, left to fR (x < 0.5) or right to fR (x >= 0.5)
                 kFrom ++;
             }
+            // TODO: hR[kFrom] += 1;
             for (int j = 0; j < 4; j++) {
                 int jNow = jFrom + j;
                 h[kFrom][jNow] += contributionsFromT[j];
@@ -168,7 +177,7 @@ public class MutualInformationGradient {
             // calculate gradient
             for (int k = 0; k < nKappa; k++) {
                 for (int j = 0; j < nIota; j++) {
-                    double factor = Math.log(h[k][j] / hT[j]);
+                    double factor = Math.log(h[k][j] / hT[j]); // FIXME: hT[j] can be zero!
                     for (int i = 0; i < parameters; i++) {
                         gradient[i] += dp[i][k][j] * factor;
                     }
