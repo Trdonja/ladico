@@ -92,28 +92,28 @@ public class MutualInformation {
         if (jFrom == nIota - 3) { // if functional value equals to maximum, fix starting index:
             jFrom--;
         }
-        double x = r - Math.floor(r);
-        double[] contributionsFromT = Interpolation.coxDeBoor3WithDerivatives(x);
+        final double xT = r - Math.floor(r);
+        double[] contributionsFromT = Interpolation.coxDeBoor3WithDerivatives(xT);
         for (int i = 4; i < 8; i++) { // to get actual derivatives, raw derivative values must be divided by bin width
             contributionsFromT[i] = contributionsFromT[i] / epsT;
         }
 
         r = fR/epsR;
         int kFrom = (int) r; // to know which bins should be updated
-        x = r - Math.floor(r);
+        final double xR = r - Math.floor(r);
         if (parzenWindow == ParzenWindow.CUBIC_BSPLINE_WINDOW) {
             if (kFrom == nKappa - 3) { // if functional value equals to maximum, fix starting index:
                 kFrom--;
             }
-            double[] contributionsFromR = Interpolation.coxDeBoor3(x);
+            double[] contributionsFromR = Interpolation.coxDeBoor3(xR);
             // updating histogram h and ∂h/∂μ
             for (int k = 0; k < 4; k++) {
-                int kNow = kFrom + k;
+                final int kNow = kFrom + k;
                 for (int j = 0; j < 4; j++) {
-                    int jNow = jFrom + j;
+                    final int jNow = jFrom + j;
                     h[kNow][jNow] += contributionsFromR[k] * contributionsFromT[j]; // update h
                     // update gradient of h
-                    double prod = contributionsFromR[k] * contributionsFromT[4 + j];
+                    final double prod = contributionsFromR[k] * contributionsFromT[4 + j];
                     for (int i = 0; i < parameters; i++) {
                         dp[i][kNow][jNow] += prod * gradfT[i];
                     }
@@ -123,13 +123,13 @@ public class MutualInformation {
             if (kFrom == nKappa - 1) { // if functional value equals to maximum, fix starting index:
                 kFrom--;
             }
-            double emx = 1 - x; // contributions from R are now {1-x, x}
+            final double emx = 1 - xR; // contributions from R are now {1-x, x}
             for (int j = 0; j < 4; j++) {
-                int jNow = jFrom + j;
+                final int jNow = jFrom + j;
                 h[kFrom][jNow] += emx * contributionsFromT[j];
-                h[kFrom + 1][jNow] += x * contributionsFromT[j];
-                double prod0 = emx * contributionsFromT[4 + j];
-                double prod1 = x * contributionsFromT[4 + j];
+                h[kFrom + 1][jNow] += xR * contributionsFromT[j];
+                final double prod0 = emx * contributionsFromT[4 + j];
+                final double prod1 = xR * contributionsFromT[4 + j];
                 for (int i = 0; i < parameters; i++) {
                     dp[i][kFrom][jNow] += prod0 * gradfT[i];
                     dp[i][kFrom + 1][jNow] += prod1 * gradfT[i];
@@ -139,13 +139,13 @@ public class MutualInformation {
             if (kFrom == nKappa - 1) { // if functional value equals to maximum, fix starting index:
                 kFrom--;
             }
-            if (x >= 0.5) { // decides which bin to increment by 1, left to fR (x < 0.5) or right to fR (x >= 0.5)
+            if (xR >= 0.5) { // decides which bin to increment by 1, left to fR (x < 0.5) or right to fR (x >= 0.5)
                 kFrom++;
             }
             for (int j = 0; j < 4; j++) {
-                int jNow = jFrom + j;
+                final int jNow = jFrom + j;
                 h[kFrom][jNow] += contributionsFromT[j];
-                double prod = contributionsFromT[4 + j];
+                final double prod = contributionsFromT[4 + j];
                 for (int i = 0; i < parameters; i++) {
                     dp[i][kFrom][jNow] += prod * gradfT[i];
                 }
@@ -181,10 +181,10 @@ public class MutualInformation {
             // calculate value of MI and quasi gradient of MI
             for (int k = 0; k < nKappa; k++) {
                 if (hR[k] != 0) { // if == 0, then h[k][j] == 0 for all j and there is nothing to do
-                    double logHR = Math.log(hR[k]);
+                    final double logHR = Math.log(hR[k]);
                     for (int j = 0; j < nIota; j++) {
                         if (h[k][j] != 0) { // only positive h[k][j] contribute to the sum
-                            double factor = Math.log(h[k][j] / hT[j]); // hT[j] is not 0, if h[k][j] is not
+                            final double factor = Math.log(h[k][j] / hT[j]); // hT[j] is not 0, if h[k][j] is not
                             // increment value of MI
                             value += h[k][j] * (factor - logHR); // == h[k][j] * log(h[k][j] / (hR[k] * hT[j]));
                             // increment components of quasi gradient of MI
@@ -197,7 +197,7 @@ public class MutualInformation {
             }
             value = -value; // we deal with negative of MI actually
             // need to multiply quasi gradient component with this constant c to get proper gradient:
-            double c = 1 / (cardinality * epsT);
+            final double c = 1 / (cardinality * epsT);
             for (int i = 0; i < parameters; i++) {
                 gradient[i] = c * gradient[i];
             }
