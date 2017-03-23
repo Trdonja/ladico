@@ -1,21 +1,20 @@
 import java.util.Arrays;
-import java.util.Optional;
+import java.util.NoSuchElementException;
 
 /**
- * Gradient of mutual information with respect to transformation parameter vector.
+ * Negative mutual information at given transformation parameter vector.
+ *
+ * This class stores histograms and other data needed to calculate negative mutual information and its gradient
+ * with respect to transformation parameter vector.
  */
-public class MutualInformationGradient {
+public class MutualInformation {
 
-    /* TODO:
-    * include histogram hR
-    * rename class to MutualInformation
-    * create methods value() and gradient() instead of get()
-    * */
     // histogram arrays
-    private final double[] hT; // histogram for target image, smoothed with cubic Parzen window
+    private final double[] hR; // histogram of reference image
+    private final double[] hT; // histogram of target image
     private final double[][] h; // joint histogram for reference and target image
-    /* Quasi gradient of joint probability with respect to transformation parameter vector,
-       ∂h/∂μ. Needs to be multiplied with proper constant to be true probability density function. */
+    /* Quasi gradient of joint probability distribution with respect to transformation parameter vector μ,
+       ∂p/∂μ. Needs to be multiplied with proper constant to be true gradient of joint probability distribution. */
     private final double[][][] dp;
     // number of bins and width of bins used in histograms
     private final int nKappa; // number of bins in histogram for reference image
@@ -29,7 +28,8 @@ public class MutualInformationGradient {
     // number of sample points used for evaluation of MI gradient
     private int cardinality;
     // values of MI gradient
-    private boolean evaluated; // indicator, if MI gradient is evaluated or not
+    private boolean evaluated; // indicator, if MI value and its gradient are evaluated or not
+    private double value;
     private final double[] gradient; // gradient of MI gradient, if it is evaluated
 
     /**
@@ -51,8 +51,8 @@ public class MutualInformationGradient {
      * @param parameters number of geometric transformation parameters (degree of freedom of transformation model)
      * @param parzenWindow Parzen window used for reference image histogram
      */
-    public MutualInformationGradient(int binsR, int binsT, double maxfR, double maxfT, int parameters,
-                                     ParzenWindow parzenWindow) {
+    public MutualInformation(int binsR, int binsT, double maxfR, double maxfT, int parameters,
+                             ParzenWindow parzenWindow) {
         if (parzenWindow == ParzenWindow.CUBIC_BSPLINE_WINDOW) {
             nKappa = binsR + 2; // we add two more bins, one at the beginning and one at the end
         } else { // parzenWindow is LINEAR_BSPLINE_WINDOW or NO_WINDOW
@@ -63,6 +63,7 @@ public class MutualInformationGradient {
         epsR = maxfR/(binsR - 1);
         epsT = maxfT/(binsT - 1);
 
+        hR = new double[nKappa];
         hT = new double[nIota];
         h = new double[nKappa][nIota];
         dp = new double[parameters][nKappa][nIota];
@@ -71,6 +72,7 @@ public class MutualInformationGradient {
         cardinality = 0;
 
         evaluated = false;
+        value = 0;
         gradient = new double[parameters];
     }
 
@@ -88,7 +90,7 @@ public class MutualInformationGradient {
         double r = fT/epsT;
         int jFrom = (int) r; // to know which bins should be updated
         if (jFrom == nIota - 3) { // if functional value equals to maximum, fix starting index:
-            jFrom --;
+            jFrom--;
         }
         double x = r - Math.floor(r);
         double[] contributionsFromT = Interpolation.coxDeBoor3WithDerivatives(x);
@@ -107,7 +109,6 @@ public class MutualInformationGradient {
             // updating histogram h and ∂h/∂μ
             for (int k = 0; k < 4; k++) {
                 int kNow = kFrom + k;
-                // TODO: hR[kNow] += contributionsFromR[k];
                 for (int j = 0; j < 4; j++) {
                     int jNow = jFrom + j;
                     h[kNow][jNow] += contributionsFromR[k] * contributionsFromT[j]; // update h
@@ -120,10 +121,9 @@ public class MutualInformationGradient {
             }
         } else if (parzenWindow == ParzenWindow.LINEAR_BSPLINE_WINDOW) {
             if (kFrom == nKappa - 1) { // if functional value equals to maximum, fix starting index:
-                kFrom --;
+                kFrom--;
             }
             double emx = 1 - x; // contributions from R are now {1-x, x}
-            // TODO: hR[kNow] += emx; hR[kNow + 1] += x;
             for (int j = 0; j < 4; j++) {
                 int jNow = jFrom + j;
                 h[kFrom][jNow] += emx * contributionsFromT[j];
@@ -137,12 +137,11 @@ public class MutualInformationGradient {
             }
         } else if (parzenWindow == ParzenWindow.NO_WINDOW) { // the only remaining option
             if (kFrom == nKappa - 1) { // if functional value equals to maximum, fix starting index:
-                kFrom --;
+                kFrom--;
             }
             if (x >= 0.5) { // decides which bin to increment by 1, left to fR (x < 0.5) or right to fR (x >= 0.5)
-                kFrom ++;
+                kFrom++;
             }
-            // TODO: hR[kFrom] += 1;
             for (int j = 0; j < 4; j++) {
                 int jNow = jFrom + j;
                 h[kFrom][jNow] += contributionsFromT[j];
@@ -153,11 +152,13 @@ public class MutualInformationGradient {
             }
         }
 
-        cardinality ++; // one more sample was included
+        cardinality++; // one more sample was included
         if (evaluated) {
             evaluated = false;
-            // these two need to be calculated again in method evaluate() and are set to initial value here:
+            // these need to be calculated again in method evaluate() and are set to initial value here:
+            Arrays.fill(hR, 0);
             Arrays.fill(hT, 0);
+            value = 0;
             Arrays.fill(gradient, 0);
         }
     }
@@ -168,21 +169,34 @@ public class MutualInformationGradient {
      */
     public void evaluate() {
         if (!evaluated) {
-            // calculate marginal histogram hT
+            // calculate probabilities from histograms
             for (int j = 0; j < nIota; j++) {
                 for (int k = 0; k < nKappa; k++) {
-                    hT[j] += h[k][j];
+                    h[k][j] = h[k][j] / cardinality; // normalize joint histogram to get joint probability function
+                    hR[k] += h[k][j]; // calculate marginal probabilities for reference image
+                    hT[j] += h[k][j]; // calculate marginal probabilities for target image
+
                 }
             }
-            // calculate gradient
+            // calculate value of MI and quasi gradient of MI
             for (int k = 0; k < nKappa; k++) {
-                for (int j = 0; j < nIota; j++) {
-                    double factor = Math.log(h[k][j] / hT[j]); // FIXME: hT[j] can be zero!
-                    for (int i = 0; i < parameters; i++) {
-                        gradient[i] += dp[i][k][j] * factor;
+                if (hR[k] != 0) { // if == 0, then h[k][j] == 0 for all j and there is nothing to do
+                    double logHR = Math.log(hR[k]);
+                    for (int j = 0; j < nIota; j++) {
+                        if (h[k][j] != 0) { // only positive h[k][j] contribute to the sum
+                            double factor = Math.log(h[k][j] / hT[j]); // hT[j] is not 0, if h[k][j] is not
+                            // increment value of MI
+                            value += h[k][j] * (factor - logHR); // == h[k][j] * log(h[k][j] / (hR[k] * hT[j]));
+                            // increment components of quasi gradient of MI
+                            for (int i = 0; i < parameters; i++) {
+                                gradient[i] += dp[i][k][j] * factor;
+                            }
+                        }
                     }
                 }
             }
+            value = -value; // we deal with negative of MI actually
+            // need to multiply quasi gradient component with this constant c to get proper gradient:
             double c = 1 / (cardinality * epsT);
             for (int i = 0; i < parameters; i++) {
                 gradient[i] = c * gradient[i];
@@ -193,14 +207,26 @@ public class MutualInformationGradient {
     }
 
     /**
-     * Returns value of gradient of mutual information, if already calculated.
+     * Returns value of mutual information, if already calculated.
+     * @return value of mutual information, if already calculated, otherwise empty Optional.
+     */
+    public double getValue() {
+        if (evaluated) {
+            return value;
+        } else {
+            throw new NoSuchElementException("Value of this mutual information is not calculated yet.");
+        }
+    }
+
+    /**
+     * Returns gradient of mutual information, if already calculated.
      * @return value of gradient of mutual information, if already calculated, otherwise empty Optional.
      */
-    public Optional<double[]> get() {
+    public double[] getGradient() {
         if (evaluated) {
-            return Optional.of(Arrays.copyOf(gradient, gradient.length));
+            return Arrays.copyOf(gradient, gradient.length);
         } else {
-            return Optional.empty();
+            throw new NoSuchElementException("Gradient of this mutual information is not calculated yet.");
         }
     }
 
