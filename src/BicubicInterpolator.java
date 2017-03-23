@@ -11,7 +11,7 @@ public class BicubicInterpolator {
     private final double[][] coefficients; // spline coefficients
 
     @Contract("null -> fail")
-    public BicubicInterpolator(GridFunction2D gridFunction){
+    public BicubicInterpolator(GridFunction2D gridFunction) {
         if (gridFunction == null) {
             throw new IllegalArgumentException("Grid function should not be NULL.");
         }
@@ -56,6 +56,7 @@ public class BicubicInterpolator {
         return result;
     }
 
+
     private class Localizator {
 
         final int iFrom;
@@ -71,7 +72,6 @@ public class BicubicInterpolator {
             this.jTo = jFrom + 4;
             this.py = py;
         }
-
     }
 
     private Localizator localize(double x, double y) throws OutOfGridException {
@@ -103,4 +103,5 @@ public class BicubicInterpolator {
         }
         return new Localizator(iFrom, px, jFrom, py);
     }
+
 }

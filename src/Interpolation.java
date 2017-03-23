@@ -8,7 +8,7 @@ import java.util.Arrays;
 public class Interpolation {
 
     /**
-     * Calculates coefficients of cubic B-spline, which interpolate values on 1D grid.
+     * Calculates coefficients of cubic B-spline, which interpolates values on 1D grid.
      * @param values grid values to be interpolated with cubic B-spline
      * @return coefficients of cubic B-spline, which interpolates given values
      */
@@ -16,32 +16,32 @@ public class Interpolation {
     static double[] cubicBSplineTransform(double[] values) {
         final int n = values.length;
         double[] a = new double[n];
-        double[] b = Arrays.stream(values).map(x -> 6*x).toArray();
-        double[] c = new double[n+2];
+        double[] b = Arrays.stream(values).map(x -> 6 * x).toArray();
+        double[] c = new double[n + 2];
         // Forward filtering
         a[0] = 0;
-        b[0] = b[0]/2;
-        for (int i = 1; i < n-1; i++) {
-            double factor = -1/a[i-1];
+        b[0] = b[0] / 2;
+        for (int i = 1; i < n - 1; i++) {
+            double factor = -1 / a[i - 1];
             a[i] = 4 + factor;
-            b[i] += factor*b[i-1];
+            b[i] += factor * b[i - 1];
         }
-        double factor = -2/a[n-2];
-        a[n-1] = 4 + factor;
-        b[n-1] += factor*b[n-2];
+        double factor = -2 / a[n - 2];
+        a[n - 1] = 4 + factor;
+        b[n - 1] += factor*b[n - 2];
         // Backwards filtering
-        c[n] = b[n-1]/a[n-1];
-        for (int i = n-2; i > 0; i--) {
-            c[i+1] = (b[i] - c[i+2])/a[i];
+        c[n] = b[n - 1] / a[n - 1];
+        for (int i = n - 2; i > 0; i--) {
+            c[i + 1] = (b[i] - c[i + 2]) / a[i];
         }
         c[0] = c[2];
-        c[n+1] = c[n-1];
+        c[n + 1] = c[n - 1];
 
         return c;
     }
 
     /**
-     * Calculates coefficients of cubic B-spline, which interpolate values on 2D grid.
+     * Calculates coefficients of cubic B-spline, which interpolates values on 2D grid.
      * @param values grid values to be interpolated with cubic B-spline
      * @return coefficients of cubic B-spline, which interpolates given values
      */
@@ -49,20 +49,52 @@ public class Interpolation {
     static double[][] cubicBSplineTransform2D(double[][] values) {
         final int m = values.length;
         final int n = values[0].length;
-        // Apply transform row-wise
-        double[][] intermediate = new double[m][n+2];
+        // Apply 1D transform row-wise
+        double[][] intermediate = new double[m][n + 2];
         for (int i = 0; i < m; i++) {
             intermediate[i] = cubicBSplineTransform(values[i]);
         }
-        // Apply transform column-wise
-        double[][] result = new double[m+2][n+2];
-        for (int j = 0; j < n+2; j++) {
+        // Apply 1D transform column-wise
+        double[][] result = new double[m + 2][n + 2];
+        for (int j = 0; j < n + 2; j++) {
             double[] column = new double[m];
-            int finalJ = j;
+            final int finalJ = j;
             Arrays.setAll(column, i -> intermediate[i][finalJ]);
             double[] c = cubicBSplineTransform(column);
-            for(int i = 0; i < m+2; i++) {
+            for(int i = 0; i < m + 2; i++) {
                 result[i][j] = c[i];
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Calculates coefficients of cubic B-splines, which interpolates values on 3D grid.
+     * @param values grid values to be interpolated with cubic B-spline
+     * @return coefficients of cubic B-spline, which interpolates given values
+     */
+    @Contract(pure = true)
+    static double[][][] cubicBSplineTransform3D(double[][][] values) {
+        final int m = values.length;
+        final int n = values[0].length;
+        final int p = values[0][0].length;
+        // Apply 2D transform by X-slices
+        double[][][] intermediate = new double[m][n + 2][p + 2];
+        for (int i = 0; i < m; i++) {
+            intermediate[i] = cubicBSplineTransform2D(values[i]);
+        }
+        // Apply 1D transform in X-direction
+        double[][][] result = new double[m + 2][n + 2][p + 2];
+        for (int j = 0; j < n + 2; j++) {
+            for (int k = 0; k < p + 2; k++) {
+                double[] column = new double[m];
+                final int finalJ = j;
+                final int finalK = k;
+                Arrays.setAll(column, i -> intermediate[i][finalJ][finalK]);
+                double[] c = cubicBSplineTransform(column);
+                for (int i = 0; i < m + 2; i++) {
+                    result[i][j][k] = c[i];
+                }
             }
         }
         return result;
@@ -71,7 +103,7 @@ public class Interpolation {
     /**
      * DeBoor's algorithm for calculation of value of cubic B-spline at some point from domain.
      * @param c coefficients of B-spline. The length of this array must be exactly 4.
-     * @param p ratio of domain point x, p = x - floor(x/gridSpacing)
+     * @param p ratio of domain point x, p = x - floor(x/gridSpacing).
      * @return value of cubic B-spline at x
      */
     @Contract(pure = true)
@@ -88,10 +120,23 @@ public class Interpolation {
     }
 
     /**
+     * DeBoor's algorithm for calculation of value of cubic B-spline and its derivative at some point from domain.
+     * @param c coefficients of B-spline. The length of this array must be exactly 4.
+     * @param p ratio of domain point x, p = x - floor(x/gridSpacing).
+     * @param spacing domain grid spacing (used in derivative calculation).
+     * @return value and derivative of cubic B-spline at x.
+     */
+    @Contract(pure = true)
+    static double[] deBoor3withDerivative(double[] c, double p, double spacing) {
+        // TODO: Implement this method!
+        return new double[2];
+    }
+
+    /**
      * DeBoor's algorithm for calculation of value of quadric B-spline at some point from domain.
      * @param c coefficients of B-spline. The length of this array must be exactly 3.
-     * @param p ratio of domain point x, p = x - floor(x/gridSpacing)
-     * @return value of quadric B-spline at x
+     * @param p ratio of domain point x, p = x - floor(x/gridSpacing).
+     * @return value of quadric B-spline at x.
      */
     @Contract(pure = true)
     static double deBoor2(double[] c, double p) {
