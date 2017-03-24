@@ -107,7 +107,7 @@ public class Interpolation {
      * @return value of cubic B-spline at x
      */
     @Contract(pure = true)
-    static double deBoor3(double[] c, double p) {
+    static double deBoor3(final double[] c, final double p) {
         // coefficients c^[1](x)
         c[0] = (2*c[1] + c[0] + p*(c[1] - c[0]))/3;
         c[1] = (c[2] + 2*c[1] + p*(c[2] - c[1]))/3;
@@ -127,9 +127,26 @@ public class Interpolation {
      * @return value and derivative of cubic B-spline at x.
      */
     @Contract(pure = true)
-    static double[] deBoor3withDerivative(double[] c, double p, double spacing) {
-        // TODO: Implement this method!
-        return new double[2];
+    static double[] deBoor3withDerivative(final double[] c, final double p, final double spacing) {
+        double[] d = {c[1] - c[0], c[2] - c[1], c[3] - c[2]};
+        // coefficients c^[1](x)
+        c[0] = (2*c[1] + c[0] + p*d[0])/3;
+        c[1] = (c[2] + 2*c[1] + p*d[1])/3;
+        c[2] = c[2] + p*d[2]/3;
+        // coefficients c^[2](x)
+        c[0] = (c[1] + c[0] + p*(c[1] - c[0]))/2;
+        c[1] = c[1] + p*(c[2] - c[1])/2;
+        // coefficient c^[3](x) = s(x)
+        c[0] = c[0] + p*(c[1] - c[0]);
+
+        // Calculating derivative s'(x):
+        // coefficients d^[1](x)
+        d[0] = (d[1] + d[0] + p*(d[1] - d[0]))/2/spacing;
+        d[1] = (d[1] + p*(d[2] - d[1])/2)/spacing;
+        // coefficient d^[2](x) = s'(x)
+        d[0] = d[0] + p*(d[1] - d[0]);
+
+        return new double[]{c[0], d[0]};
     }
 
     /**

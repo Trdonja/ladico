@@ -21,16 +21,16 @@ public class TricubicInterpolator {
 
     public double valueAt(double x, double y, double z) throws OutOfGridException {
         final Localizator loc = localize(x, y, z);
-        double[][] c2 = new double[4][4]; // here will be values of interpolations along third dimension
+        final double[][] c2 = new double[4][4]; // here will be values of interpolations along third dimension
         final int kTo = loc.kFrom + 4;
         for (int i = 0; i < 4; i++) {
             final int iLocal = loc.iFrom + i;
             for (int j = 0; j < 4; j++) {
-                double[] cInter = Arrays.copyOfRange(coefficients[iLocal][loc.jFrom + j], loc.kFrom, kTo);
-                c2[i][j] = Interpolation.deBoor3(cInter, loc.pz);
+                double[] c3 = Arrays.copyOfRange(coefficients[iLocal][loc.jFrom + j], loc.kFrom, kTo);
+                c2[i][j] = Interpolation.deBoor3(c3, loc.pz);
             }
         }
-        double[] c1 = new double[4];
+        final double[] c1 = new double[4];
         for (int i = 0; i < 4; i++) {
             c1[i] = Interpolation.deBoor3(c2[i], loc.py);
         }
@@ -38,8 +38,33 @@ public class TricubicInterpolator {
     }
 
     public double[] valueAndDerivativeAt(double x, double y, double z) throws OutOfGridException {
-        // TODO: Implement this method
-        return new double[4]; // value and 3 gradient components
+        final Localizator loc = localize(x, y, z);
+        final double c2[][] = new double[4][4]; // values of interpolation in Z-direction
+        final double dz2[][] = new double[4][4]; // derivatives of interpolation in Z-direction
+        final double c1[] = new double[4]; // values of interpolation in Z and Y-direction
+        final double dy1[] = new double[4];
+        final double dz1[] = new double[4];
+        final int kTo = loc.kFrom + 4;
+        for (int i = 0; i < 4; i++) {
+            final int iLocal = loc.iFrom + i;
+            for (int j = 0; j < 4; j++) {
+                final double[] c3 = Arrays.copyOfRange(coefficients[iLocal][loc.jFrom + j], loc.kFrom, kTo);
+                double[] valueDerivativePair = Interpolation.deBoor3withDerivative(c3, loc.pz, gridFunction.spacingZ);
+                c2[i][j] = valueDerivativePair[0];
+                dz2[i][j] = valueDerivativePair[1];
+            }
+            double[] valueDerivativePair = Interpolation.deBoor3withDerivative(c2[i], loc.py, gridFunction.spacingY);
+            c1[i] = valueDerivativePair[0];
+            dy1[i] = valueDerivativePair[1];
+            dz1[i] = Interpolation.deBoor3(dz2[i], loc.py);
+        }
+        final double[] result = new double[4]; // storage for result; first cell for value, last 3 for derivatives
+        double[] valueDerivativePair = Interpolation.deBoor3withDerivative(c1, loc.px, gridFunction.spacingX);
+        result[0] = valueDerivativePair[0]; // value of spline at (x,y,z)
+        result[1] = valueDerivativePair[1]; // partial derivative of spline with regard to x at (x,y,z)
+        result[2] = Interpolation.deBoor3(dy1, loc.px); // partial derivative of spline with regard to y at (x,y,z)
+        result[3] = Interpolation.deBoor3(dz1, loc.px); // partial derivative of spline with regard to z at (x,y,z)
+        return result; // value and 3 gradient components
     }
 
 
